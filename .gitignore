@@ -1,2 +1,4 @@
+.vscode
 /elastalert
 /venv
+*.pyc

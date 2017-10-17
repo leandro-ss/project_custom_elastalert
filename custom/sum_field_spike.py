@@ -9,16 +9,12 @@ preserve them.
 """
 import copy
 
-from elastalert.ruletypes import FrequencyRule
 from elastalert.ruletypes import SpikeRule
-from elastalert.ruletypes import FlatlineRule
-from elastalert.ruletypes import EventWindow
 from elastalert.util import lookup_es_key
 from elastalert.util import elastalert_logger
 
-
-def verify_integer_field(document, rule, count_field, allow_zero=False):
-    count = lookup_es_key(document, count_field)
+def verify_integer_field(document, rule, target_field, allow_zero=False):
+    count = lookup_es_key(document, target_field)
     # Attempt to convert strings to ints
     if isinstance(count, basestring):
         try:
@@ -26,12 +22,12 @@ def verify_integer_field(document, rule, count_field, allow_zero=False):
         except ValueError:
             elastalert_logger.warning(
                 'Field %s is a string which could not be converted'
-                'into an integer for rule %s' % (count_field, rule['name']))
+                'into an integer for rule %s' % (target_field, rule['name']))
             return None
     if count is None:
         elastalert_logger.warning(
             'Did not find field %s representing document count in '
-            'document for rule %s' % (count_field, rule['name']))
+            'document for rule %s' % (target_field, rule['name']))
         return None
     if isinstance(count, float):
         count = int(count)
@@ -39,7 +35,7 @@ def verify_integer_field(document, rule, count_field, allow_zero=False):
         elastalert_logger.warning(
             'Non-integer value of field %s representing document '
             'count in document for rule %s: %s'
-            % (count_field, rule['name'], count))
+            % (target_field, rule['name'], count))
         return None
     if count < 0 or (count == 0 and not allow_zero):
         return None
@@ -59,22 +55,15 @@ class SumOfFieldRuleFactory(type):
 
         def add_data(self, data):
             for document in data:
-                count = verify_integer_field(
-                    document, self.rules, self.rules['count_field'])
                 ts = lookup_es_key(document, self.ts_field)
                 if count and ts:
                     super(self.__class__, self).add_count_data({ts: count})
 
         backing_rule_type_cls = dct['backing_rule_type']
         dct['required_options'] = (
-            dct['backing_rule_type'].required_options | frozenset(['count_field']))
+            dct['backing_rule_type'].required_options | frozenset(['target_field']))
         dct['add_data'] = add_data
         return type.__new__(mcs, name, (backing_rule_type_cls,), dct)
-
-
-class SumOfFieldFrequencyRule(object):
-    __metaclass__ = SumOfFieldRuleFactory
-    backing_rule_type = FrequencyRule
 
 
 class SumOfFieldSpikeRule(object):
