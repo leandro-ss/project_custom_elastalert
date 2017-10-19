@@ -9,6 +9,7 @@ preserve them.
 """
 import copy
 
+
 from blist import sortedlist
 
 from elastalert.ruletypes import hashable
