@@ -1,12 +1,12 @@
 # Alert when there is a sudden spike in the volume of events
 # (Required)
 # Rule name, must be unique
-name: custom_spike_sum
+name: custom_spike_percentile
 
 # (Required)
 # Type of alert.
 # the spike rule type compares the number of events within two sliding windows to each other
-type: custom.sum_field_spike.SumOfFieldSpikeRule
+type: custom.customruletypes.PercentileOfFieldSpikeRule
 
 # (Required)
 # Index to search, wildcard supported
@@ -54,17 +54,18 @@ spike_type: "up"
 filter:
 - query:
     query_string:
-      query: "answer: 200 AND clientip: 192.168.56.220"
+      query: "answer: 200"
 - type:
     value: "log"
 
 # Counts of documents will be stored independently for each value of query_key.
 # Only num_events documents, all with the same value of query_key, will trigger an alert.
-query_key: beat.hostname.keyword
+query_key: clientip
 
 # (Required)
 # Required Custom Field
 target_field: time_taken
+percentile_value: 90
 
 # If true, ElastAlert will make an aggregation query against Elasticsearch 
 # to get counts of documents matching each unique value of query_key.
