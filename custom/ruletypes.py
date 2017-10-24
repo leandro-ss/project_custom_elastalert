@@ -9,6 +9,7 @@ preserve them.
 """
 import copy
 
+import threading
 
 from blist import sortedlist
 
@@ -21,6 +22,12 @@ from elastalert.util import lookup_es_key
 from elastalert.util import elastalert_logger
 
 class PercentileOfFieldSpikeRule(SpikeRule):
+
+    def __init__(self, *args):
+        super(PercentileOfFieldSpikeRule, self).__init__(*args)
+
+        self.skip_test = {}
+
     """
     Metaclass that creates a subclass of the class's backing_rule_type.
     backing_rule_type must implement add_count_data.
@@ -28,6 +35,8 @@ class PercentileOfFieldSpikeRule(SpikeRule):
     # This allows the add_data to use super(...).add_count_data(...) to call
     # the add_count_data method of the appropriate backing RuleType, without
     # having to reimplement all the common logic for each backing_rule_type.
+
+    required_options = frozenset(['percentile_value', 'target_field'])
 
     def add_data(self, data):
         for document in data:
@@ -47,6 +56,11 @@ class PercentileOfFieldSpikeRule(SpikeRule):
             
             if count and ts:
                 self.handle_event({self.ts_field: ts}, count, qk)
+            else:
+                elastalert_logger.warning(
+                    'Did not find field %s representing target_field in '
+                    'document for rule %s' % ( self.rules['target_field'], self.rules['name']))
+    
 
 
     def handle_event(self, event, count, qk='all'):
@@ -59,39 +73,50 @@ class PercentileOfFieldSpikeRule(SpikeRule):
         self.cur_windows[qk].append((event, count))
 
         # Don't alert if ref window has not yet been filled for this key AND
-        if event[self.ts_field] - self.first_event[qk][self.ts_field] < self.rules['timeframe'] * 2:
+        if event[self.ts_field] - self.first_event[qk][self.ts_field] <= self.rules['timeframe'] * 2:
+
             # ElastAlert has not been running long enough for any alerts OR
             if not self.ref_window_filled_once:
                 return
+
             # This rule is not using alert_on_new_data (with query_key) OR
             if not (self.rules.get('query_key') and self.rules.get('alert_on_new_data')):
                 return
-            # An alert for this qk has recently fired
-            if qk in self.skip_checks and event[self.ts_field] < self.skip_checks[qk]:
-                return
+
         else:
             self.ref_window_filled_once = True
-        if self.find_matches(self.ref_windows[qk].count(), self.cur_windows[qk].count()):
+
+        # An alert for this qk has recently fired
+        if qk in self.skip_test and event[self.ts_field] < self.skip_test[qk]:
+            return
+
+        ref_count = self.ref_windows[qk].count()
+        cur_count = self.cur_windows[qk].count()
+
+        if self.find_matches(ref_count,cur_count):
             # skip over placeholder events which have count=0
             for match, count in self.cur_windows[qk].data:
-                if count:
+                if count >= cur_count:
                     break
 
             self.add_match(match, qk)
             self.clear_windows(qk, match)
 
-        def add_match(self, match, qk):
-            extra_info = {}
-            spike_count = self.cur_windows[qk].count()
-            reference_count = self.ref_windows[qk].count()
-            extra_info = {
-                        'query_key': qk,
-                        'spike_count': spike_count,
-                        'reference_count': reference_count}
+    def clear_windows(self, qk, event):
+        # Reset the state and prevent alerts until windows filled again
+        self.skip_test[qk] =  event[self.ts_field] + self.rules['timeframe'] * 2
+        self.cur_windows[qk].clear()
+        self.ref_windows[qk].clear()
+        self.first_event.pop(qk)
 
-            match = dict(match.items() + extra_info.items())
+    def add_match(self, match, qk):
+        extra_info = {'current_count': self.cur_windows[qk].count(),
+                      'reference_count': self.ref_windows[qk].count()}
 
-            super(SpikeRule, self).add_match(match)
+        match = dict(match.items() + extra_info.items())
+
+        super(SpikeRule, self).add_match(match)
+
 
 class CustomEventWindow(EventWindow):
     """ A container for hold event counts for rules which need a chronological ordered event window. """
@@ -100,25 +125,27 @@ class CustomEventWindow(EventWindow):
         super(CustomEventWindow, self ).__init__(timeframe, onRemoved, getTimestamp)         
         self.p_value = p_value
 
-
     def append(self, event):
         """ Add an event to the window. Event should be of the form (dict, count).
         This will also pop the oldest events and call onRemoved on them until the
         window size is less than timeframe. """
         self.data.add(event)
-
+        # While range of dates is greater than timeframe Get the size in timedelta of the window. 
         while self.duration() >= self.timeframe:
             oldest = self.data[0]
             self.data.remove(oldest)
             self.onRemoved and self.onRemoved(oldest)
 
+    def append_middle(self, event):
+        """ Attempt to place the event in the correct location in our deque.
+        Returns True if successful, otherwise False. """
+        raise NotImplementedError
+
+    def count(self):
         temp_list = sorted(self.data, key=lambda data: data[1])
 
         p_posit = int(len(temp_list) / 100*self.p_value)
 
         self.running_count = temp_list[p_posit][1]
 
-    def append_middle(self, event):
-        """ Attempt to place the event in the correct location in our deque.
-        Returns True if successful, otherwise False. """
-        raise NotImplementedError
+        return self.running_count
