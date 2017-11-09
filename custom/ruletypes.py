@@ -143,9 +143,7 @@ class CustomEventWindow(EventWindow):
 
     def count(self):
         temp_list = sorted(self.data, key=lambda data: data[1])
-
         p_posit = int(len(temp_list) / 100*self.p_value)
 
         self.running_count = temp_list[p_posit][1]
-
         return self.running_count
