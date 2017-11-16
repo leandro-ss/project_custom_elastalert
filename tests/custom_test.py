@@ -1,3 +1,4 @@
+import json
 import mock
 import tests
 import pytest
@@ -10,52 +11,65 @@ from elastalert.util import ts_now
 from elastalert.util import ts_to_dt
 
 
-#custom.custom_rule2.SpikeAggregationRule
-def hits(size, **kwargs):
+def hits(size,time_delta=datetime.timedelta(seconds=0),**kwargs):
     ret = []
     for n in range(size):
-        ts = ts_to_dt('2000-01-01T00:%s:%sZ' % (n / 60, n % 60))
+        ts = ts_to_dt('2000-01-01T00:%s:%sZ' % (n / 60, n % 60)) + time_delta
         n += 1
-        event = create_event(ts, **kwargs)
-        ret.append(event)
+        ret.append(event(ts, **kwargs))
     return ret
 
-
-def create_event(timestamp, timestamp_field='@timestamp', **kwargs):
+def event(timestamp, timestamp_field='@timestamp', **kwargs):
     event = {timestamp_field: timestamp}
     event.update(**kwargs)
     return event
 
 
-def test_rule():
+RULES =  PercentileOfFieldSpikeRule({
+    'name': 'PercentileOfFieldSpikeRule',
+    'threshold_cur': 10,
+    'spike_height': 2,
+    'timeframe': datetime.timedelta(seconds=5),
+    'spike_type': 'up',
+    'target_field': 'cpu',
+    'use_count_query': False,
+    'percentile_value': 90,
+    'timestamp_field': 'ts'
+})
 
-    # Events are 1 per second
+def _test1_rule():
+
+    # Criado um evento por segundo
     events = hits(100, timestamp_field='ts', cpu=10)
     # Constant rate, doesn't match
-    rules = {
-             'name': 'PercentileOfFieldSpikeRule',
-             'threshold_ref': 10,
-             'spike_height': 2,
-             'timeframe': datetime.timedelta(seconds=10),
-             'spike_type': 'both',
-             'target_field': 'cpu',
-             'use_count_query': False, # Comportamento nao apresentou diferenca
-             'percentile_value': 100,
-             'timestamp_field': 'ts'}
-    rule = PercentileOfFieldSpikeRule(rules)
-    rule.add_data(events)
-    #assert len(rule.matches) == 0
+    RULES.add_data(events)
 
-    # Double the rate of events after [50:]
-    # Adcionar os primeiros 50 eventos
-    events2 = events[:50]
-    for event in events[50:]:
-        # Adcionar os ultimos 50 eventos
-        events2.append(event)
-        # Adcionar os ultimos 50 eventos novamente acrecidos de 10 segundos sobre ts e 10 pontos sobre a CPU
-        events2.append({'ts': event['ts'] + datetime.timedelta(seconds=10) , 'cpu':20})
+    assert len(RULES.matches) == 0
 
-    rule = PercentileOfFieldSpikeRule(rules)
-    rule.add_data(events2)
-    #print (rule.matches)
-    assert len(rule.matches) == 1
+
+def test2_rule():
+
+    events1 = hits(10, time_delta=datetime.timedelta(seconds= 0), timestamp_field='ts', cpu=10)
+    events2 = hits(10, time_delta=datetime.timedelta(seconds= 5), timestamp_field='ts', cpu=20)
+    sorted_list = sorted(events1+events2, key=lambda data: data['ts'])
+
+    RULES.add_data(
+        sorted_list
+    )
+
+    assert len(RULES.matches) == 1
+
+
+def _test2_rule():
+
+    events1 = hits(50, time_delta=datetime.timedelta(seconds= 0), timestamp_field='ts', cpu=10)
+    events2 = hits(50, time_delta=datetime.timedelta(seconds=50), timestamp_field='ts', cpu=10)
+    events3 = hits(50, time_delta=datetime.timedelta(seconds=50), timestamp_field='ts', cpu=20)
+    sorted_list = sorted(events1+events2+events3, key=lambda data: data['ts'])
+
+    RULES.add_data(
+        sorted_list
+    )
+
+    assert len(RULES.matches) == 1
+

@@ -3,8 +3,6 @@ import tests
 import pytest
 import datetime
 
-from custom.ruletypes import PercentileOfFieldSpikeRule
-
 from elastalert.util import EAException
 from elastalert.util import ts_now
 from elastalert.util import ts_to_dt
@@ -26,7 +24,7 @@ def create_event(timestamp, timestamp_field='@timestamp', **kwargs):
     return event
 
 #test_metric_aggregation
-def test_rule():
+def _test_rule():
     rules = {'buffer_time': datetime.timedelta(minutes=5),
              'timestamp_field': '@timestamp',
              'metric_agg_type': 'avg',

@@ -29,12 +29,12 @@ index: filebeat-access-*
 # than a third as many.
 threshold_cur: 100
 
-#  (Required, spike specific)
+# (Required, spike specific)
 # The size of the window used to determine average event frequency
 # We use two sliding windows each of size timeframe
 # To measure the 'reference' rate and the current rate
 timeframe:
-  minutes: 2
+  minutes: 1
 
 # (Required, spike specific)
 # The spike rule matches when the current window contains spike_height times more
@@ -51,19 +51,18 @@ spike_type: "up"
 # A list of Elasticsearch filters used for find events
 # These filters are joined with AND and nested in a filtered query
 # For more info: http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl.html
-filter:
-- query:
-    query_string:
-      query: "answer: 200"
-- type:
-    value: "log"
+#filter:
+#- query:
+#    query_string:
+#      query: "answer: 200"
+#- type:
+#    value: "log"
 
 # Counts of documents will be stored independently for each value of query_key.
 # Only num_events documents, all with the same value of query_key, will trigger an alert.
-query_key: clientip
+#query_key: clientip
 
-# (Required)
-# Required Custom Field
+# (Required) # Required Custom Field
 target_field: time_taken
 percentile_value: 90
 

@@ -133,23 +133,6 @@ class PercentileOfFieldSpikeRule(SpikeRule):
         message += 'Preceding that time, there were only %d events within %s\n\n' % (match['reference_count'], self.rules['timeframe'])
         return message
 
-    def garbage_collect(self, ts):
-        pass
-    #    # Windows are sized according to their newest event
-    #    # This is a placeholder to accurately size windows in the absence of events
-    #    for qk in self.cur_windows.keys():
-    #        # If we havn't seen this key in a long time, forget it
-    #        if qk != 'all' and self.ref_windows[qk].count() == 0 and self.cur_windows[qk].count() == 0:
-    #            self.cur_windows.pop(qk)
-    #            self.ref_windows.pop(qk)
-    #            continue
-    #        placeholder = {self.ts_field: ts}
-    #        # The placeholder may trigger an alert, in which case, qk will be expected
-    #        if qk != 'all':
-    #            placeholder.update({self.rules['query_key']: qk})
-    #        self.handle_event(placeholder, 0, qk)
-
-
 
 class CustomEventWindow(EventWindow):
     """ A container for hold event counts for rules which need a chronological ordered event window. """

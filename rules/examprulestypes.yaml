@@ -6,7 +6,7 @@ name: sumSpikeRule
 # (Required)
 # Type of alert.
 # the spike rule type compares the number of events within two sliding windows to each other
-type: custom.exampruletypes.SumOfFieldSpikeRule
+type: examp.ruletypes.SumOfFieldSpikeRule
 
 # (Required)
 # Index to search, wildcard supported
@@ -27,16 +27,14 @@ index: filebeat-access-*
 # For example, if spike_height: 3 and threshold_cur: 60, then an alert will occur 
 # if the current window has more than 60 events and the reference window has less 
 # than a third as many.
-#threshold_cur: 5
 threshold_cur: 100
-
 
 # (Required, spike specific)
 # The size of the window used to determine average event frequency
 # We use two sliding windows each of size timeframe
 # To measure the 'reference' rate and the current rate
 timeframe:
-  minutes: 2
+  minutes: 1
 
 # (Required, spike specific)
 # The spike rule matches when the current window contains spike_height times more
@@ -53,19 +51,30 @@ spike_type: "up"
 # A list of Elasticsearch filters used for find events
 # These filters are joined with AND and nested in a filtered query
 # For more info: http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/query-dsl.html
-filter:
-- query:
-    query_string:
-      query: "answer: 200"
-- type:
-    value: "log"
+#filter:
+#- query:
+#    query_string:
+#      query: "answer: 200"
+#- type:
+#    value: "log"
 
 # Counts of documents will be stored independently for each value of query_key.
 # Only num_events documents, all with the same value of query_key, will trigger an alert.
-query_key: clientip
+#query_key: clientip
 
-
+# (Required)
+# Required Custom Field
 target_field: time_taken
+
+# If true, ElastAlert will make an aggregation query against Elasticsearch 
+# to get counts of documents matching each unique value of query_key.
+# This must be used with query_key and doc_type. This will only return a maximum
+# of terms_size, default 50, unique terms.
+#use_terms_query: true
+
+# When used with use_terms_query,
+# this is the maximum number of terms returned per query. Default is 50.
+#terms_size: 100
 
 # Specify the _type of document to search for.
 # This must be present if use_count_query or use_terms_query is set.

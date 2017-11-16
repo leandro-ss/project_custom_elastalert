@@ -1,5 +1,4 @@
 .vscode
-/elastalert
-/venv
+/.venv
 *.pyc
 *.txt
