@@ -1,4 +1,8 @@
 .vscode
 /.venv
+/dist
+
+/*.egg-info
+
 *.pyc
 *.txt
